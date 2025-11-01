@@ -79,6 +79,8 @@ const Registration = () => {
   };
 
   /* ---------- render (unchanged look) ---------- */
+ 
+ 
   return (
     <div style={{ padding: 20 }}>
       <h3>Registration</h3>
