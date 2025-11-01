@@ -1,41 +1,68 @@
-// MyProfile.jsx
+// src/components/MyProfile.jsx
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import supabase from '../../../globals/supabase';
 
 const MyProfile = () => {
-    const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState(null);
 
-    useEffect(() => {
-        const uid = sessionStorage.getItem('uid');
-        if (!uid) return;
+  useEffect(() => {
+    (async () => {
+      const uid = sessionStorage.getItem('uid');
+      if (!uid) return;
 
-        axios.get(`http://127.0.0.1:8000/User/${uid}/`)
-            .then(res => setProfile(res.data.data[0]))
-            .catch(err => console.error(err));
-    }, []);
+      /*  joined select: users → places → districts  */
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          full_name,
+          email,
+          photo_url,
+          places!inner(
+            place_name,
+            districts!inner(district_name)
+          )
+        `)
+        .eq('id', uid)
+        .single(); // one row
 
-    if (!profile) return <div>Loading...</div>;
+      if (error) { console.error(error); return; }
 
-    return (
-        <div style={{ padding: 20 }}>
-            <h3>My Profile</h3>
-            <table border="1" cellPadding="8">
-                <tbody>
-                     <tr>
-                        <td>Photo</td>
-                        <td>
-                            <img src={`http://127.0.0.1:8000/${profile.photo}`} alt="user" width="120"/>
-                        </td>
-                    </tr>
-                    <tr><td>Name</td><td>{profile.full_name}</td></tr>
-                    <tr><td>Email</td><td>{profile.email}</td></tr>
-                    <tr><td>District</td><td>{profile.district_name}</td></tr>
-                    <tr><td>Place</td><td>{profile.place_name}</td></tr>
-                   
-                </tbody>
-            </table>
-        </div>
-    );
+      // flatten to keep old render logic
+      setProfile({
+        full_name: data.full_name,
+        email: data.email,
+        photo_url: data.photo_url,
+        place_name: data.places.place_name,
+        district_name: data.places.districts.district_name,
+      });
+    })();
+  }, []);
+
+  if (!profile) return <div>Loading...</div>;
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h3>My Profile</h3>
+      <table border="1" cellPadding="8">
+        <tbody>
+          <tr>
+            <td>Photo</td>
+            <td>
+              {profile.photo_url ? (
+                <img src={profile.photo_url} alt="user" width="120" />
+              ) : (
+                <span>No photo</span>
+              )}
+            </td>
+          </tr>
+          <tr><td>Name</td><td>{profile.full_name}</td></tr>
+          <tr><td>Email</td><td>{profile.email}</td></tr>
+          <tr><td>District</td><td>{profile.district_name}</td></tr>
+          <tr><td>Place</td><td>{profile.place_name}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  );
 };
 
 export default MyProfile;

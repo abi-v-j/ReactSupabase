@@ -27,7 +27,6 @@ const Registration = () => {
   /* ---------- load places when district changes ---------- */
   useEffect(() => {
     if (!districtId) { setPlaces([]); setPlaceId(''); return; }
-
     (async () => {
       const { data } = await supabase
         .from('places')
@@ -45,42 +44,41 @@ const Registration = () => {
       return;
     }
 
+    /* 1. upload avatar if provided */
     let publicURL = null;
-
-    /* 1. upload photo (if any) */
     if (photoFile) {
       const fileName = `${Date.now()}_${photoFile.name}`;
       const { data, error: upError } = await supabase.storage
-        .from('userFiles')               // <- your storage bucket
+        .from('userFiles')
         .upload(fileName, photoFile, { upsert: false });
 
       if (upError) { alert(upError.message); return; }
-
-      // get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('userFiles')
-        .getPublicUrl(data.path);
-      publicURL = publicUrl;
+      publicURL = supabase.storage.from('userFiles').getPublicUrl(data.path).data.publicUrl;
     }
 
-    /* 2. insert user row */
-    const { error } = await supabase.from('users').insert([{
-      full_name: fullName,
+    /* 2. create auth user */
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
       email,
-      password,            // ⚠️ you should hash this in a real app
+      password,
+    });
+    if (signUpError) { alert(signUpError.message); return; }
+
+    /* 3. insert extended profile row */
+    const user = authData.user;
+    const { error: dbError } = await supabase.from('users').insert([{
+      id: user.id,               // uuid from auth.users
+      full_name: fullName,
+      email: email,
       place_id: placeId,
-      photo_url: publicURL
+      photo_url: publicURL,
     }]);
+    if (dbError) { alert(dbError.message); return; }
 
-    if (error) { alert(error.message); return; }
-
-    alert('User registered');
-    /* optional: reset form */
-    setFullName(''); setEmail(''); setPassword(''); setPhotoFile(null);
-    setDistrictId(''); setPlaceId(''); setPlaces([]);
+    alert('Check your email for confirmation link!');
+    /* optional: redirect */
   };
 
-  /* ---------- render ---------- */
+  /* ---------- render (unchanged look) ---------- */
   return (
     <div style={{ padding: 20 }}>
       <h3>Registration</h3>
